@@ -6,28 +6,47 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from env_A2C import droneEnv 
 
 def train():
-    # Configurazione percorsi
-    log_dir = "tmp_A2C/"
-    os.makedirs(log_dir, exist_ok=True)
+    # --- IMPOSTAZIONI ---
+    TIMESTEPS = 100000  
+    VERSION = "v0"       
+    
+    # --- 1. CONFIGURAZIONE PERCORSI ---
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Definiamo i percorsi relativi
+    log_dir = os.path.join(script_dir, "logs_a2c/")
+    checkpoint_dir = os.path.join(script_dir, "models_checkpoint/")
+    final_model_dir = os.path.join(script_dir, "../models/") 
 
-    # Inizializza ambiente
+    os.makedirs(log_dir, exist_ok=True)
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    os.makedirs(final_model_dir, exist_ok=True)
+
+    # --- 2. AMBIENTE ---
     env = droneEnv(render_every_frame=False, mouse_target=False)
     env = Monitor(env, log_dir)
 
-    # Crea agente A2C
-    # Usiamo MlpPolicy per osservazioni numeriche (vettore di stato) 
+    # --- 3. MODELLO ---
     model = A2C("MlpPolicy", env, verbose=1, tensorboard_log=log_dir)
 
-    # Callback per salvataggi intermedi
+    # --- 4. CALLBACK ---
     checkpoint_callback = CheckpointCallback(
-        save_freq=100000, save_path=log_dir, name_prefix="a2c_model_v1"
+        save_freq=100000, 
+        save_path=checkpoint_dir,
+        name_prefix="a2c_checkpoint"
     )
 
-    # Addestramento del modello 
-    model.learn(total_timesteps=10000, callback=checkpoint_callback)
+    # --- 5. ADDESTRAMENTO ---
+    print(f"Inizio addestramento A2C ({VERSION}) per {TIMESTEPS} step...")
+    model.learn(total_timesteps=TIMESTEPS, callback=checkpoint_callback)
     
-    # Salvataggio finale
-    model.save("a2c_model_v0_10000_steps")
+    # --- 6. SALVATAGGIO FINALE ---
+    filename = f"a2c_model_{VERSION}_{TIMESTEPS}_steps"
+    final_path = os.path.join(final_model_dir, filename)
+    
+    model.save(final_path)
+    print(f"Finito! Modello salvato in:")
+    print(final_path)
 
 if __name__ == "__main__":
     train()

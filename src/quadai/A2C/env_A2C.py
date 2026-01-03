@@ -34,10 +34,11 @@ class droneEnv(gym.Env):
         self.screen = pygame.display.set_mode((800, 800))
         self.FramePerSec = pygame.time.Clock()
 
-        self.player = pygame.image.load(os.path.join("assets/sprites/drone_old.png"))
+        # Caricamento immagini con percorso relativo corretto
+        self.player = pygame.image.load(os.path.join("../assets/sprites/drone_old.png"))
         self.player.convert()
 
-        self.target = pygame.image.load(os.path.join("assets/sprites/target_old.png"))
+        self.target = pygame.image.load(os.path.join("../assets/sprites/target_old.png"))
         self.target.convert()
 
         pygame.font.init()
@@ -69,7 +70,7 @@ class droneEnv(gym.Env):
 
         # 2 action thrust amplitude and thrust difference in float values between -1 and 1
         self.action_space = spaces.Box(low=-1, high=1, shape=(2,))
-        # 8 observations: angle_to_up, velocity, angle_velocity, distance_to_target, angle_to_target, angle_target_and_velocity, distance_to_target
+        # 8 observations
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(7,))
 
     def reset(self):
@@ -87,19 +88,6 @@ class droneEnv(gym.Env):
         return self.get_obs()
 
     def get_obs(self) -> np.ndarray:
-        """
-        Calculates the observations
-
-        Returns:
-            np.ndarray: The normalized observations:
-            - angle_to_up : angle between the drone and the up vector (to observe gravity)
-            - velocity : velocity of the drone
-            - angle_velocity : angle of the velocity vector
-            - distance_to_target : distance to the target
-            - angle_to_target : angle between the drone and the target
-            - angle_target_and_velocity : angle between the to_target vector and the velocity vector
-            - distance_to_target : distance to the target (HERE TWICE BY MISTAKE)
-        """
         angle_to_up = self.a / 180 * pi
         velocity = sqrt(self.xd**2 + self.yd**2)
         angle_velocity = self.ad
