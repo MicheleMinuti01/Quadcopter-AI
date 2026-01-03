@@ -7,8 +7,8 @@ from env_A2C import droneEnv
 
 def train():
     # --- IMPOSTAZIONI ---
-    TIMESTEPS = 100000  
-    VERSION = "v0"       
+    TIMESTEPS = 500000  
+    VERSION = "v1"       
     
     # --- 1. CONFIGURAZIONE PERCORSI ---
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -27,7 +27,8 @@ def train():
     env = Monitor(env, log_dir)
 
     # --- 3. MODELLO ---
-    model = A2C("MlpPolicy", env, verbose=1, tensorboard_log=log_dir)
+    model = A2C("MlpPolicy", env, verbose=1, tensorboard_log=log_dir, 
+            learning_rate=0.0007, gamma=0.99, ent_coef=0.01, n_steps=20)
 
     # --- 4. CALLBACK ---
     checkpoint_callback = CheckpointCallback(

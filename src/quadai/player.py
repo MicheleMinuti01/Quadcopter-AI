@@ -13,6 +13,7 @@ import pygame
 from pygame.locals import *
 
 from stable_baselines3 import SAC
+from stable_baselines3 import A2C  
 
 from quadai.PID.controller_PID import PID
 
@@ -139,4 +140,36 @@ class SACPlayer(Player):
         thruster_right += action0 * self.thruster_amplitude
         thruster_left += action1 * self.diff_amplitude
         thruster_right -= action1 * self.diff_amplitude
+        return thruster_left, thruster_right
+
+class A2CPlayer(Player):
+    def __init__(self):
+        self.name = "A2C"  # Il nome che apparirà sopra il drone
+        self.alpha = 50
+        # Parametri fisici (devono corrispondere a quelli del training)
+        self.thruster_amplitude = 0.04
+        self.diff_amplitude = 0.003
+        self.thruster_mean = 0.04 
+
+        filename = "models/a2c_model_v0_100000_steps.zip" 
+        model_path = os.path.join(os.path.dirname(__file__), filename)
+        self.path = model_path
+        
+        super().__init__()
+
+        self.model = A2C.load(self.path)
+
+
+    def act(self, obs):           
+        action, _ = self.model.predict(obs)
+        (action0, action1) = (action[0], action[1])
+
+        thruster_left = self.thruster_mean
+        thruster_right = self.thruster_mean
+
+        thruster_left += action0 * self.thruster_amplitude
+        thruster_right += action0 * self.thruster_amplitude
+        thruster_left += action1 * self.diff_amplitude
+        thruster_right -= action1 * self.diff_amplitude
+
         return thruster_left, thruster_right

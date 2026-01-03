@@ -14,7 +14,7 @@ from math import sin, cos, pi, sqrt
 import numpy as np
 import pygame
 from pygame.locals import *
-from quadai.player import HumanPlayer, PIDPlayer, SACPlayer
+from quadai.player import HumanPlayer, PIDPlayer, SACPlayer, A2CPlayer
 
 
 def correct_path(current_path):
@@ -150,7 +150,8 @@ def balloon():
     time_limit = 100
     respawn_timer_max = 3
 
-    players = [HumanPlayer(), PIDPlayer(), SACPlayer()]
+    # Qui puoi scegliere chi gioca. Aggiungi o togli agenti dalla lista.
+    players = [HumanPlayer(), PIDPlayer(), SACPlayer(), A2CPlayer()]
 
     # Generate 100 targets
     targets = []
@@ -199,6 +200,39 @@ def balloon():
                             player.angular_speed,
                         ]
                     )
+                    
+                elif player.name == "A2C":
+                    # Recuperiamo le coordinate del target corrente
+                    xt = targets[player.target_counter][0]
+                    yt = targets[player.target_counter][1]
+                    
+                    # Calcoli fisici per l'osservazione (copiati da env_A2C.py)
+                    angle_to_up = player.angle / 180 * pi
+                    velocity = sqrt(player.x_speed**2 + player.y_speed**2)
+                    angle_velocity = player.angular_speed
+                    
+                    dist_val = sqrt((xt - player.x_position) ** 2 + (yt - player.y_position) ** 2)
+                    distance_to_target = dist_val / 500
+                    
+                    angle_to_target = np.arctan2(yt - player.y_position, xt - player.x_position)
+                    
+                    angle_target_and_velocity = np.arctan2(
+                        yt - player.y_position, xt - player.x_position
+                    ) - np.arctan2(player.y_speed, player.x_speed)
+
+                    obs_array = np.array([
+                        angle_to_up,
+                        velocity,
+                        angle_velocity,
+                        distance_to_target,
+                        angle_to_target,
+                        angle_target_and_velocity,
+                        distance_to_target
+                    ]).astype(np.float32)
+
+                    # Passiamo l'array corretto alla funzione act
+                    thruster_left, thruster_right = player.act(obs_array)
+                    
                 elif player.name == "SAC":
                     angle_to_up = player.angle / 180 * pi
                     velocity = sqrt(player.x_speed**2 + player.y_speed**2)
@@ -242,6 +276,7 @@ def balloon():
                         ).astype(np.float32)
                     )
                 else:
+                    # Human player 
                     thruster_left, thruster_right = player.act([])
 
                 # Calculate accelerations according to Newton's laws of motion
