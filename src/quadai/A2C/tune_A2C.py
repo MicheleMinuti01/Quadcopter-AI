@@ -5,9 +5,7 @@ from stable_baselines3.common.monitor import Monitor
 from env_A2C import droneEnv 
 
 def run_tuning():
-    # --- IMPOSTAZIONI PER UN TUNING APPROFONDITO ---
-    
-    # 1. Quanto deve durare ogni singolo test?
+    # --- IMPOSTAZIONI PER UN TUNING PROFONDO ---
     TEST_TIMESTEPS = 500000 
 
     # 2. I parametri da combinare (Grid Search)

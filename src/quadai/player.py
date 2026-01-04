@@ -151,7 +151,7 @@ class A2CPlayer(Player):
         self.diff_amplitude = 0.003
         self.thruster_mean = 0.04 
 
-        filename = "models/a2c_model_v0_100000_steps.zip" 
+        filename = "models/a2c_model_v2_5000000_steps.zip" 
         model_path = os.path.join(os.path.dirname(__file__), filename)
         self.path = model_path
         

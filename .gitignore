@@ -138,6 +138,8 @@ runs
 temp.py
 tmp
 # models
+models_checkpoint/
+tune_result/
 
 # Photoshop
 *.psd
