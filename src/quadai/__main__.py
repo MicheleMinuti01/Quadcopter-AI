@@ -12,6 +12,7 @@ import sys
 import quadai
 from quadai.balloon import balloon
 from quadai.snowglobe import snowglobe
+from quadai.balloon_noisy import balloon_noisy
 
 
 def main(game: str = "balloon") -> None:
@@ -25,6 +26,8 @@ def main(game: str = "balloon") -> None:
         balloon()
     elif game == "snowglobe":
         snowglobe()
+    elif game == "balloon_noisy":
+        balloon_noisy()
     else:
         print(f"Unknown tracking library: {game} (expected: balloon or snowglobe)")
 
@@ -34,4 +37,4 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         main(sys.argv[1])
     else:
-        main()
+        main() 

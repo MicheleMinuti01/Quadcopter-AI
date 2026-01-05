@@ -1,64 +1,69 @@
 import sys
 import os
-
-# Path setup
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from stable_baselines3 import A2C
+from stable_baselines3 import SAC
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback
 
-# Importiamo le funzioni di percorso corrette
 from quadai.utils.paths import get_raw_logs_dir, get_models_dir, get_checkpoints_dir
-from env_A2C import droneEnv 
+from env_noisy_SAC import droneEnv
 
 def train():
     # --- IMPOSTAZIONI ---
-    ALGO = "A2C"
-    VERSION = "v1" 
-    TIMESTEPS = 5000000  
+    ALGO = "SAC"
+    VERSION = "v1_noise"
+    TIMESTEPS = 3300000
     
-    # --- PERCORSI AUTOMATICI ---
+    # --- PERCORSI ---
     log_dir = get_raw_logs_dir(ALGO)            
     checkpoint_dir = get_checkpoints_dir(ALGO)
     models_dir = get_models_dir()           
 
-    print(f"--- TRAINING A2C {VERSION} ---")
-    print(f"Logs: {log_dir}")
+    print(f"--- TRAINING SAC {VERSION} (NOISY) ---")
 
-    # --- AMBIENTE ---
-    env = droneEnv(render_every_frame=False, mouse_target=False)
-    env = Monitor(env, os.path.join(log_dir, "monitor.csv"))
+    # --- AMBIENTE (NOISY) ---
+    env = droneEnv(
+        render_every_frame=False,
+        mouse_target=False,
+        wind_enabled=True,
+        wind_speed_max=0.04,
+        sensor_noise_enabled=True
+    )
+    # Monitor specifico
+    env = Monitor(env, log_dir)
 
-    # --- MODELLO A2C ---
-    model = A2C(
+    # --- MODELLO SAC ---
+    model = SAC(
         "MlpPolicy", 
         env, 
         verbose=1, 
         tensorboard_log=log_dir,
-        # Iperparametri base A2C
-        learning_rate=0.0007,
-        gamma=0.99,
-        ent_coef=0.0,
-        n_steps=20
+        learning_rate=0.0003,
+        ent_coef='auto',
+        batch_size=256
     )
 
     # --- CALLBACK ---
     checkpoint_callback = CheckpointCallback(
-        save_freq=100000, 
+        save_freq=50000, 
         save_path=checkpoint_dir,
         name_prefix=f"{ALGO.lower()}_checkpoint_{VERSION}"
     )
 
-    # --- ESECUZIONE ---
-    model.learn(total_timesteps=TIMESTEPS, callback=checkpoint_callback)
+    # --- TRAINING ---
+    # CORREZIONE: tb_log_name va messo QUI!
+    model.learn(
+        total_timesteps=TIMESTEPS, 
+        callback=checkpoint_callback,
+        tb_log_name="SAC_NOISY" 
+    )
     
-    # --- SALVATAGGIO ---
     filename = f"{ALGO.lower()}_model_{VERSION}_{TIMESTEPS}_steps"
     final_path = os.path.join(models_dir, filename)
     
     model.save(final_path)
-    print(f"Finito! Modello salvato in: {final_path}")
+    print(f"Modello Noisy salvato in: {final_path}")
 
 if __name__ == "__main__":
     train()

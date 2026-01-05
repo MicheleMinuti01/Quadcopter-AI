@@ -1,47 +1,63 @@
 import os
+import sys
+
+# Hack per assicurarsi di trovare i moduli se lanciato da terminale
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 from utils.paths import get_raw_tune_dir, get_raw_logs_dir
 from utils.plot_tuning import plot_tuning_comparison
-from utils.plot_training import plot_training_csv
-from utils.plot_tensorboard import plot_tb_simple, plot_paper_style
+# Importiamo SOLO la funzione paper style
+from utils.plot_tensorboard import plot_paper_style 
 
 def run_all_plots():
-    print("--- INIZIO GENERAZIONE GRAFICI (Ordinata) ---")
+    print("--- INIZIO ANALISI E GENERAZIONE GRAFICI ---")
 
-    # --- CONFIGURAZIONE VERSIONI ---
+    # --- CONFIGURAZIONE ---
     run_versions = {
-        "A2C": "3",  # Cerca la cartella A2C_3
-        "PPO": "1"   # Cerca la cartella PPO_1
+        "A2C": "3",        # Cerca A2C_3
+        "PPO": "1",        # Cerca PPO_1
+        "PPO_NOISY": "1"   # Cerca PPO_NOISY_1
     }
 
-    # Iteriamo su chiave (algo) e valore (version)
-    for algo, version in run_versions.items():
-        print(f"\n>>> Elaborazione {algo} (Run {algo}_{version})...")
-        
-        # 1. Recuperiamo i percorsi
-        tune_path = os.path.join(get_raw_tune_dir(algo), f"tuning_results_{algo}_FULL.txt")
-        log_base = get_raw_logs_dir(algo) # es. logs_a2c
-        
-        # COSTRUZIONE DINAMICA DEL PERCORSO TENSORBOARD
-        tb_log_path = os.path.join(log_base, f"{algo}_{version}") 
+    for key, version in run_versions.items():
+        print(f"\n" + "="*50)
+        print(f"Elaborazione: {key} (v{version})")
+        print("="*50)
 
-        # Controllo di sicurezza
-        if not os.path.exists(tb_log_path):
-            print(f"ATTENZIONE: La cartella {tb_log_path} non esiste! Salto i grafici TensorBoard.")
-            continue
-        
-        # 2. Lanciamo i grafici
-        # Grafico Tuning (TXT)
-        plot_tuning_comparison(tune_path, algo)
-        
-        # Grafico Training (CSV)
-        plot_training_csv(log_base, algo)
-        
-        # Grafici TensorBoard (se la cartella esiste)
-        if os.path.exists(tb_log_path):
-            plot_tb_simple(tb_log_path, algo)
-            plot_paper_style(tb_log_path, algo)
+        # 1. SETUP VARIABILI
+        if "_NOISY" in key:
+            algo_base = key.replace("_NOISY", "")
+            is_noisy = True
+        else:
+            algo_base = key
+            is_noisy = False
+            
+        log_base_dir = get_raw_logs_dir(algo_base)
+        tune_base_dir = get_raw_tune_dir(algo_base)
 
-    print("\n--- OPERAZIONE COMPLETATA ---")
+        # 2. GRAFICI TUNING
+        if is_noisy:
+            tune_file = f"tuning_results_{algo_base}_NOISY.txt"
+        else:
+            tune_file = f"tuning_results_{algo_base}_FULL.txt"
+            
+        tune_path = os.path.join(tune_base_dir, tune_file)
+        plot_tuning_comparison(tune_path, algo_base)
+
+        # 3. GRAFICI TENSORBOARD (SOLO PAPER STYLE)
+        target_folder = f"{key}_{version}"
+        tb_path = os.path.join(log_base_dir, target_folder)
+
+        if os.path.exists(tb_path):
+            try:
+                # Genera SOLO il grafico 2x2 completo
+                plot_paper_style(tb_path, algo_base)
+            except Exception as e:
+                print(f"   ERRORE TensorBoard: {e}")
+        else:
+            print(f"   [!] Cartella TensorBoard non trovata: {target_folder}")
+
+    print("\n--- TUTTO FATTO. CONTROLLA LA CARTELLA RESULTS ---")
 
 if __name__ == "__main__":
     run_all_plots()

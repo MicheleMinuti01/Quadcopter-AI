@@ -1,31 +1,46 @@
-"""
-Test a trained SAC agent on the droneEnv environment
-"""
-
+import sys
 import os
-import gym
 import numpy as np
-import torch as th
+
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+
 from stable_baselines3 import SAC
-
 from env_SAC import droneEnv
+from quadai.utils.paths import get_models_dir 
 
-MODEL_PATH = "models/sac_model_v2_5000000_steps.zip"
+def test():
+    # Nome del file generato dal training
+    FILENAME = "sac_model_v1_1000000_steps.zip"
+    
+    models_dir = get_models_dir()
+    model_path = os.path.join(models_dir, FILENAME)
 
-# Create and wrap the environment
-env = droneEnv(True, False)
+    if not os.path.exists(model_path):
+        print(f"\nERRORE: Modello non trovato in: {model_path}")
+        return
 
-# Load the trained agent
-model = SAC.load(MODEL_PATH, env=env)
+    print(f"Caricamento: {FILENAME}")
 
-# Evaluate the agent
-for i in range(10):
-    obs = env.reset()
-    done = False
-    episode_reward = 0
-    while not done:
-        action, _states = model.predict(obs, deterministic=True)
-        obs, reward, done, info = env.step(action)
-        episode_reward += reward
-    print("Episode reward", episode_reward)
-    env.render("yes")
+    # Ambiente
+    env = droneEnv(render_every_frame=True, mouse_target=False)
+    
+    # Caricamento Agente
+    model = SAC.load(model_path, env=env)
+
+    # Valutazione
+    for i in range(5):
+        obs = env.reset()
+        done = False
+        episode_reward = 0
+        while not done:
+            action, _states = model.predict(obs, deterministic=True)
+            obs, reward, done, info = env.step(action)
+            episode_reward += reward
+            # Il render è gestito internamente dall'env se render_every_frame=True, 
+            # ma lo chiamiamo qui per sicurezza se impostato a False nel costruttore
+            env.render("yes")
+            
+        print(f"Episodio {i+1}: Reward = {episode_reward:.2f}")
+
+if __name__ == "__main__":
+    test()

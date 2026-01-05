@@ -23,7 +23,7 @@ def test():
     print(f"Caricamento modello finale da: {model_path}")
 
     # Create and wrap the environment
-    env = droneEnv(True, False)
+    env = droneEnv(False, False)
     
     # Load the trained agent
     model = PPO.load(model_path, env=env)

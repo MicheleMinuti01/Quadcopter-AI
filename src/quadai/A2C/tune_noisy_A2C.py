@@ -4,70 +4,59 @@ import pandas as pd
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from stable_baselines3 import PPO
+from stable_baselines3 import A2C
 from stable_baselines3.common.monitor import Monitor
-from env_PPO import droneEnv 
-from quadai.utils.paths import get_tune_dir 
+from env_noisy_A2C import droneEnv 
+from quadai.utils.paths import get_raw_tune_dir 
 
 def run_tuning():
-    ALGO = "PPO"
+    ALGO = "A2C"
     TEST_TIMESTEPS = 500000 
-
-    # Grid Search Parametri
-    learning_rates = [0.0007, 0.001, 0.0015] 
-    clip_ranges = [0.2, 0.3]         
-    n_epochs_list = [10, 15]
-
-    # --- PERCORSI ---
-    # Main folder: src/quadai/PPO/tune_result
-    results_dir = get_tune_dir(ALGO)
     
-    # File report
-    results_file = os.path.join(results_dir, f"tuning_results_{ALGO}_FULL.txt")
-    
-    # Cartella temporanea: src/quadai/PPO/tune_result/tmp_tuning
+    # Grid ridotta per fare prima (i parametri migliori di solito sono simili)
+    learning_rates = [0.0005, 0.0007]
+    ent_coefs = [0.0, 0.01] # Entropia importante col vento
+    n_steps_list = [20]
+
+    # --- GESTIONE CARTELLE ---
+    results_dir = get_raw_tune_dir(ALGO)
+    results_file = os.path.join(results_dir, f"tuning_results_{ALGO}_NOISY.txt")
     tmp_log_base = os.path.join(results_dir, "tmp_tuning")
     os.makedirs(tmp_log_base, exist_ok=True)
     
-    # Intestazione
     with open(results_file, "w") as f:
-        f.write("LR, CLIP_RANGE, N_EPOCHS, MEAN_REWARD, MAX_REWARD\n")
+        f.write("LR, ENT_COEF, N_STEPS, MEAN_REWARD, MAX_REWARD\n")
     
-    print(f"Inizio Tuning PPO.")
-    print(f"Risultati in: {results_file}")
-    print(f"Log temporanei in: {tmp_log_base}")
+    print(f"Inizio Tuning A2C NOISY. File: {results_file}")
 
     best_reward = -float('inf')
     best_config = None
     counter = 0
 
     for lr in learning_rates:
-        for clip in clip_ranges:
-            for epochs in n_epochs_list:
+        for ent in ent_coefs:
+            for n_steps in n_steps_list:
                 counter += 1
-                config_name = f"lr{lr}_clip{clip}_ep{epochs}"
-                
-                # Sottocartella log specifica
+                config_name = f"noisy_lr{lr}_ent{ent}_n{n_steps}"
                 current_log_dir = os.path.join(tmp_log_base, config_name)
                 os.makedirs(current_log_dir, exist_ok=True)
                 
-                print(f"\n[{counter}/12] Test: {config_name}")
+                print(f"\n[{counter}] Test Noisy: {config_name}")
                 
-                env = droneEnv(render_every_frame=False, mouse_target=False)
+                env = droneEnv(False, False, wind_enabled=True, sensor_noise_enabled=True)
                 env = Monitor(env, current_log_dir)
                 
-                model = PPO(
+                model = A2C(
                     "MlpPolicy", 
                     env, 
                     verbose=0, 
                     learning_rate=lr, 
-                    clip_range=clip,
-                    n_epochs=epochs
+                    ent_coef=ent,
+                    n_steps=n_steps
                 )
                 
                 model.learn(total_timesteps=TEST_TIMESTEPS)
                 
-                # Lettura risultati
                 try:
                     df = pd.read_csv(os.path.join(current_log_dir, "monitor.csv"), skiprows=1)
                     mean_r = df['r'].tail(100).mean()
@@ -78,16 +67,14 @@ def run_tuning():
                 print(f"--> Media: {mean_r:.2f}")
                 
                 with open(results_file, "a") as f:
-                    f.write(f"{lr}, {clip}, {epochs}, {mean_r}, {max_r}\n")
+                    f.write(f"{lr}, {ent}, {n_steps}, {mean_r}, {max_r}\n")
                 
                 if mean_r > best_reward:
                     best_reward = mean_r
-                    best_config = (lr, clip, epochs)
+                    best_config = (lr, ent, n_steps)
 
     print("\n" + "="*50)
-    print("TUNING COMPLETATO")
-    print(f"Miglior Config: LR={best_config[0]}, Clip={best_config[1]}, Epochs={best_config[2]}")
-    print(f"Reward: {best_reward:.2f}")
+    print(f"Best Config Noisy: LR={best_config[0]}, Ent={best_config[1]}")
 
 if __name__ == "__main__":
     run_tuning()

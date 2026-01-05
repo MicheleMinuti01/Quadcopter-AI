@@ -1,34 +1,27 @@
-import os
 import sys
-import time
+import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from stable_baselines3 import A2C
 from env_A2C import droneEnv
-from quadai.utils.paths import get_models_dir # type: ignore
+from quadai.utils.paths import get_models_dir
 
 def test():
-    
-    FILENAME = "a2c_model_v2_5000000_steps.zip"
+    # Cerca il modello V1 standard
+    FILENAME = "a2c_model_v1_5000000_steps.zip"
     
     models_dir = get_models_dir()
     model_path = os.path.join(models_dir, FILENAME)
 
     if not os.path.exists(model_path):
-        print(f"\nERRORE: Non trovo il modello finale!")
-        print(f"Ho cercato in: {model_path}")
+        print(f"\nERRORE: Modello non trovato: {model_path}")
         return
 
-    print(f"Caricamento modello finale da: {model_path}")
-
-    # Create and wrap the environment
-    env = droneEnv(True, False)
-    
-    # Load the trained agent
+    print(f"Caricamento: {FILENAME}")
+    env = droneEnv(True, False) # Render=True
     model = A2C.load(model_path, env=env)
 
-    # Evaluate the agent
-    for i in range(10):
+    for i in range(5):
         obs = env.reset()
         done = False
         episode_reward = 0
@@ -36,8 +29,8 @@ def test():
             action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
             episode_reward += reward
-        print("Episode reward", episode_reward)
-        env.render("yes")
+            env.render("yes")
+        print(f"Episodio {i+1}: Reward {episode_reward:.2f}")
 
 if __name__ == "__main__":
     test()
