@@ -9,6 +9,7 @@ It is to be used with a DQN agent
 The goal is to reach randomly positoned targets
 """
 
+import sys
 import os
 from math import sin, cos, pi, sqrt
 from random import randrange
@@ -20,13 +21,15 @@ from gym import spaces
 import pygame
 from pygame.locals import *
 
+# --- AGGIUNTA FONDAMENTALE ---
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from quadai.utils.paths import get_assets_dir # type: ignore
 
 class droneEnv(gym.Env):
     def __init__(self, render_every_frame, mouse_target):
         super(droneEnv, self).__init__()
 
         self.render_every_frame = render_every_frame
-        # Makes the target follow the mouse
         self.mouse_target = mouse_target
 
         # Initialize Pygame, load sprites
@@ -34,11 +37,14 @@ class droneEnv(gym.Env):
         self.screen = pygame.display.set_mode((800, 800))
         self.FramePerSec = pygame.time.Clock()
 
-        # Caricamento immagini con percorso relativo corretto
-        self.player = pygame.image.load(os.path.join("../assets/sprites/drone_old.png"))
+        # --- CARICAMENTO ASSETS DISACCOPPIATO ---
+        assets_dir = get_assets_dir()
+        
+        # Carichiamo usando il percorso assoluto fornito da utils
+        self.player = pygame.image.load(os.path.join(assets_dir, "sprites/drone_old.png"))
         self.player.convert()
 
-        self.target = pygame.image.load(os.path.join("../assets/sprites/target_old.png"))
+        self.target = pygame.image.load(os.path.join(assets_dir, "sprites/target_old.png"))
         self.target.convert()
 
         pygame.font.init()

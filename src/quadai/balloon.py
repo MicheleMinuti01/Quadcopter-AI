@@ -14,7 +14,7 @@ from math import sin, cos, pi, sqrt
 import numpy as np
 import pygame
 from pygame.locals import *
-from quadai.player import HumanPlayer, PIDPlayer, SACPlayer, A2CPlayer
+from quadai.player import HumanPlayer, PIDPlayer, SACPlayer, A2CPlayer, PPOPlayer
 
 
 def correct_path(current_path):
@@ -151,7 +151,7 @@ def balloon():
     respawn_timer_max = 3
 
     # Qui puoi scegliere chi gioca. Aggiungi o togli agenti dalla lista.
-    players = [HumanPlayer(), PIDPlayer(), SACPlayer(), A2CPlayer()]
+    players = [HumanPlayer(), PIDPlayer(), SACPlayer(), A2CPlayer(), PPOPlayer()]
 
     # Generate 100 targets
     targets = []
@@ -202,6 +202,38 @@ def balloon():
                     )
                     
                 elif player.name == "A2C":
+                    # Recuperiamo le coordinate del target corrente
+                    xt = targets[player.target_counter][0]
+                    yt = targets[player.target_counter][1]
+                    
+                    # Calcoli fisici per l'osservazione (copiati da env_A2C.py)
+                    angle_to_up = player.angle / 180 * pi
+                    velocity = sqrt(player.x_speed**2 + player.y_speed**2)
+                    angle_velocity = player.angular_speed
+                    
+                    dist_val = sqrt((xt - player.x_position) ** 2 + (yt - player.y_position) ** 2)
+                    distance_to_target = dist_val / 500
+                    
+                    angle_to_target = np.arctan2(yt - player.y_position, xt - player.x_position)
+                    
+                    angle_target_and_velocity = np.arctan2(
+                        yt - player.y_position, xt - player.x_position
+                    ) - np.arctan2(player.y_speed, player.x_speed)
+
+                    obs_array = np.array([
+                        angle_to_up,
+                        velocity,
+                        angle_velocity,
+                        distance_to_target,
+                        angle_to_target,
+                        angle_target_and_velocity,
+                        distance_to_target
+                    ]).astype(np.float32)
+
+                    # Passiamo l'array corretto alla funzione act
+                    thruster_left, thruster_right = player.act(obs_array)
+                    
+                elif player.name == "PPO":
                     # Recuperiamo le coordinate del target corrente
                     xt = targets[player.target_counter][0]
                     yt = targets[player.target_counter][1]
@@ -396,14 +428,16 @@ def balloon():
             )
 
             # Display player info
-            if player_index == 0:
+            if player_index == 0:     # Human
                 display_info(20)
-            elif player_index == 1:
+            elif player_index == 1:   # PID
                 display_info(130)
-            elif player_index == 2:
+            elif player_index == 2:   # SAC
                 display_info(240)
-            elif player_index == 3:
+            elif player_index == 3:   # A2C
                 display_info(350)
+            elif player_index == 4:   # PPO
+                display_info(460)     
 
             time_text = time_font.render(
                 "Time : " + str(int(time_limit - time)), True, (255, 255, 255)

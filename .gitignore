@@ -139,7 +139,10 @@ temp.py
 tmp
 # models
 models_checkpoint/
-tune_result/
+tmp_tuning/
 
 # Photoshop
 *.psd
+
+# VSCode
+.vscode/

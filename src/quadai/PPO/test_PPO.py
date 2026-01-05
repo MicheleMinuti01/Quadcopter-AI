@@ -1,34 +1,44 @@
+import sys
 import os
 import time
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+
 from stable_baselines3 import PPO
 from env_PPO import droneEnv
 
-def test():
-    # Nome del file PPO che avrai creato col train
-    FILENAME = "ppo_model_v0_100000_steps.zip"
+from quadai.utils.paths import get_models_dir # type: ignore
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.normpath(os.path.join(script_dir, "..", "models", FILENAME))
+def test():
+    
+    FILENAME = "ppo_model_v1_4000000_steps.zip"
+    
+    models_dir = get_models_dir()
+    model_path = os.path.join(models_dir, FILENAME)
 
     if not os.path.exists(model_path):
-        print(f"Non trovo il modello in: {model_path}")
+        print(f"\nERRORE: Non trovo il modello finale!")
+        print(f"Ho cercato in: {model_path}")
         return
 
-    env = droneEnv(render_every_frame=True, mouse_target=False)
+    print(f"Caricamento modello finale da: {model_path}")
+
+    # Create and wrap the environment
+    env = droneEnv(True, False)
     
-    # Caricamento PPO
+    # Load the trained agent
     model = PPO.load(model_path, env=env)
 
-    for ep in range(5):
+    # Evaluate the agent
+    for i in range(10):
         obs = env.reset()
         done = False
-        score = 0
+        episode_reward = 0
         while not done:
-            action, _ = model.predict(obs, deterministic=True)
+            action, _states = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
-            score += reward
-            time.sleep(0.01)
-        print(f"Score episodio: {score:.2f}")
+            episode_reward += reward
+        print("Episode reward", episode_reward)
+        env.render("yes")
 
 if __name__ == "__main__":
     test()
