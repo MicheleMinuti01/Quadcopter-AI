@@ -17,7 +17,8 @@ def run_all_plots():
         # "A2C": "3",        # Cerca A2C_3
         # "PPO": "1",        # Cerca PPO_1
         # "PPO_NOISY": "1",   # Cerca PPO_NOISY_1
-        "SAC_NOISY": "1"   # Cerca SAC_noisy_2
+        # "SAC_NOISY": "1",   # Cerca SAC_noisy_2
+        "A2C_NOISY": "1"   # Cerca A2C_NOISY_1
     }
 
     for key, version in run_versions.items():

@@ -12,8 +12,8 @@ from env_noisy_A2C import droneEnv
 def train():
     # --- IMPOSTAZIONI ---
     ALGO = "A2C"
-    VERSION = "v2_noise"
-    TIMESTEPS = 5000000
+    VERSION = "v1_noise"
+    TIMESTEPS = 4000000
     
     # --- PERCORSI ---
     log_dir = get_raw_logs_dir(ALGO)            
