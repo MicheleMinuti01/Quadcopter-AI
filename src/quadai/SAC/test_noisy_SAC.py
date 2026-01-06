@@ -1,24 +1,29 @@
 import sys
 import os
 import numpy as np
+from math import sqrt
 
 # Setup dei percorsi
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from stable_baselines3 import SAC
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.monitor import Monitor
 
 from quadai.utils.paths import get_models_dir
+
+# ------ selezione dell'environment 
 from env_noisy_SAC import droneEnv
-from stable_baselines3.common.monitor import Monitor 
+env_name = "env_noisy_SAC"
+
 
 def test_stats():
     # --- CONFIGURAZIONE ---
-    N_EPISODES = 1000  # Numero di partite da testare
-    VERSION = "v1_noise"
-    TIMESTEPS = 4000000
+    N_EPISODES = 500  # usa 100 per debug veloce, 500-1000 per numeri “seri”
+    VERSION = "v2"
+    TIMESTEPS = 5000000
     FILENAME = f"sac_model_{VERSION}_{TIMESTEPS}_steps.zip"
-    
+
     # Percorso modello
     models_dir = get_models_dir()
     model_path = os.path.join(models_dir, FILENAME)
@@ -27,60 +32,96 @@ def test_stats():
         print(f"ERRORE: Non trovo il modello in {model_path}")
         return
 
-    print(f"--- INIZIO TEST STATISTICO (Su {N_EPISODES} episodi) ---")
+    print(f"--- INIZIO TEST STATISTICO SAC (Su {N_EPISODES} episodi) ---")
     print(f"Caricamento modello: {FILENAME}")
 
-    # --- 1. Creiamo l'ambiente di test ---
+    # --- 1. Ambiente di test ---
     env = droneEnv(
-    render_every_frame=False,
-    mouse_target=False,
-    wind_enabled=True,          # attiva vento
-    wind_dir_min_deg=0.0,       # direzione media tra 0° e 360°
-    wind_dir_max_deg=360.0,
-    wind_speed_min=0.0,         # vento minimo
-    wind_speed_max=0.04,        # vento massimo (prova 0.02–0.05)
-    wind_update_every=30,       # ogni quanto cambia lentamente il vento
-    wind_dir_rw_std_deg=2,      # quanto oscilla la direzione a ogni update
-    wind_speed_rw_std=0.003,    # quanto oscilla l’intensità a ogni update
-    sensor_noise_enabled=True,  # attiva rumore sensori
-    # opzionale: se non metti questo, usa i default nel costruttore
-    # sensor_noise_std=[0.01, 0.02, 0.01, 0.02, 0.01, 0.01, 0.02],
+        render_every_frame=False,
+        mouse_target=False,
+        wind_enabled=True,
+        wind_dir_min_deg=0.0,
+        wind_dir_max_deg=360.0,
+        wind_speed_min=0.0,
+        wind_speed_max=0.04,
+        wind_update_every=30,
+        wind_dir_rw_std_deg=2.0,
+        wind_speed_rw_std=0.003,
+        sensor_noise_enabled=True,
     )
     env = Monitor(env)
-    
-    # --- 2. Carichiamo il modello ---
+
+    # --- 2. Carichiamo il modello SAC ---
     model = SAC.load(model_path, env=env)
 
-    # --- 3. Valutazione ---
-    print("Esecuzione in corso... (potrebbe volerci un minuto)")
-    
-    # evaluate_policy fa girare il modello per N episodi
-    # deterministic=True significa che il modello usa l'azione migliore possibile (senza esplorazione casuale)
+    # --- 3. Reward medio con evaluate_policy ---
+    print("Calcolo reward medio con evaluate_policy...")
     mean_reward, std_reward = evaluate_policy(
-        model, 
-        env, 
-        n_eval_episodes=N_EPISODES, 
-        deterministic=True, 
+        model,
+        env,
+        n_eval_episodes=N_EPISODES,
+        deterministic=True,
         render=False,
-        return_episode_rewards=False
+        return_episode_rewards=False,
     )
 
-    # --- 4. Risultati ---
-    print("\n" + "="*40)
-    print(f"RISULTATI TEST PPO NOISY ({N_EPISODES} EPISODI)")
-    print("="*40)
-    print(f"Reward Medio:      {mean_reward:.2f}")
-    print(f"Deviazione Std:    {std_reward:.2f}")
-    print("-" * 40)
-    
-    # Interpretazione rapida
-    if mean_reward > 500:
-        print("Giudizio: ECCELLENTE (Vola benissimo col vento)")
-    elif mean_reward > 0:
-        print("Giudizio: BUONO (Sopravvive ma raccoglie poco)")
-    else:
-        print("Giudizio: INSUFFICIENTE (Cade spesso)")
-    print("="*40)
+    # --- 4. Run manuale per palloncini e crash ---
+    print("Calcolo palloncini medi e % crash...")
+
+    episode_rewards = []
+    balloons_per_ep = []
+    crashes = 0
+
+    for ep in range(N_EPISODES):
+        obs = env.reset()
+        done = False
+        ep_reward = 0.0
+
+        inner_env = env.env  # droneEnv interno
+        start_targets = inner_env.target_counter  # di solito 0
+
+        crashed = False
+
+        while not done:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, done, info = env.step(action)
+            ep_reward += reward
+
+            # qui ricostruiamo la distanza drone-target come nell'env
+            x = inner_env.x
+            y = inner_env.y
+            xt = inner_env.xt
+            yt = inner_env.yt
+            dist = sqrt((x - xt) ** 2 + (y - yt) ** 2)
+
+            # se l'episodio finisce e la distanza è > 1000, consideriamo crash
+            if done and dist > 1000:
+                crashed = True
+
+        end_targets = inner_env.target_counter
+        collected = max(0, end_targets - start_targets)
+
+        episode_rewards.append(ep_reward)
+        balloons_per_ep.append(collected)
+        if crashed:
+            crashes += 1
+
+    episode_rewards = np.array(episode_rewards, dtype=np.float32)
+    balloons_per_ep = np.array(balloons_per_ep, dtype=np.float32)
+    crash_rate = crashes / N_EPISODES * 100.0
+
+    # --- 5. Risultati ---
+    print("\n" + "=" * 50)
+    print(f"RISULTATI TEST SAC ({N_EPISODES} EPISODI)")
+    print(f"Modello: {FILENAME}")
+    print(f"Environment: {env_name}")
+    print("=" * 50)
+    print(f"Reward Medio:                {mean_reward:.2f}")
+    print(f"Reward Std:                  {std_reward:.2f}")
+    print(f"Palloncini medi/episodio:    {balloons_per_ep.mean():.2f}")
+    print(f"% Crash:       {crash_rate:.1f}%")
+    print("=" * 50)
+
 
 if __name__ == "__main__":
     test_stats()

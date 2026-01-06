@@ -8,6 +8,7 @@ Versione estesa con:
 - vento globale con domain randomization per partita
 - vento che varia lentamente nel tempo
 - freccia che visualizza direzione/intensità del vento
+- rumore sui sensori (osservazioni disturbate come nell'env robusto)
 """
 
 import os
@@ -45,6 +46,15 @@ wind_speed = 0.0     # intensità (unità ~ accelerazione)
 wind_ax = 0.0        # componente x
 wind_ay = 0.0        # componente y
 wind_step_counter = 0
+
+# -----------------------------
+# Rumore sensori (come nell'env)
+# -----------------------------
+SENSOR_NOISE_ENABLED = True
+SENSOR_NOISE_STD = np.array(
+    [0.01, 0.02, 0.01, 0.02, 0.01, 0.01, 0.02],
+    dtype=np.float32,
+)
 
 
 def sample_episode_wind():
@@ -99,6 +109,16 @@ def update_wind():
     # aggiorna componenti x,y
     wind_ax = wind_speed * np.cos(wind_dir)
     wind_ay = wind_speed * np.sin(wind_dir)
+
+
+def add_sensor_noise(obs: np.ndarray) -> np.ndarray:
+    """
+    Aggiunge rumore gaussiano alle osservazioni, come in droneEnv.get_obs().
+    """
+    if not SENSOR_NOISE_ENABLED:
+        return obs
+    noise = np.random.normal(0.0, SENSOR_NOISE_STD).astype(np.float32)
+    return obs + noise
 
 
 def balloon_noisy():
@@ -227,12 +247,12 @@ def balloon_noisy():
     respawn_timer_max = 3
 
     players = [
-        HumanPlayer(), 
-        PIDPlayer(), 
-        SACPlayer(), 
-        A2CPlayer(), 
-        PPOPlayer(), 
-        PPO_noisy_Player()
+        HumanPlayer(),
+        PIDPlayer(),
+        SACPlayer(),
+        A2CPlayer(),
+        PPOPlayer(),
+        PPO_noisy_Player(),
     ]
 
     # Generate 100 targets
@@ -268,13 +288,9 @@ def balloon_noisy():
         # aggiorna lentamente il vento
         update_wind()
 
-
-
         # Visualizzazione del vento con freccia + intensità in km/h
-
-
         if WIND_ENABLED:
-            # centro della freccia 
+            # centro della freccia
             cx, cy = 100, 650
 
             # scala per la lunghezza della freccia (più corta)
@@ -327,13 +343,9 @@ def balloon_noisy():
                 intensity_text,
                 (
                     cx - intensity_text.get_width() // 2,
-                    cy + 100,  # più distante dalla base della freccia
+                    cy + 100,
                 ),
             )
-
-
-
-
 
         # For each player
         for player_index, player in enumerate(players):
@@ -355,102 +367,115 @@ def balloon_noisy():
                             player.angular_speed,
                         ]
                     )
+
                 elif player.name == "A2C":
-                    # Recuperiamo le coordinate del target corrente
                     xt = targets[player.target_counter][0]
                     yt = targets[player.target_counter][1]
-                    
-                    # Calcoli fisici per l'osservazione (copiati da env_A2C.py)
+
                     angle_to_up = player.angle / 180 * pi
                     velocity = sqrt(player.x_speed**2 + player.y_speed**2)
                     angle_velocity = player.angular_speed
-                    
-                    dist_val = sqrt((xt - player.x_position) ** 2 + (yt - player.y_position) ** 2)
+                    dist_val = sqrt(
+                        (xt - player.x_position) ** 2 + (yt - player.y_position) ** 2
+                    )
                     distance_to_target = dist_val / 500
-                    
-                    angle_to_target = np.arctan2(yt - player.y_position, xt - player.x_position)
-                    
+                    angle_to_target = np.arctan2(
+                        yt - player.y_position, xt - player.x_position
+                    )
                     angle_target_and_velocity = np.arctan2(
                         yt - player.y_position, xt - player.x_position
                     ) - np.arctan2(player.y_speed, player.x_speed)
 
-                    obs_array = np.array([
-                        angle_to_up,
-                        velocity,
-                        angle_velocity,
-                        distance_to_target,
-                        angle_to_target,
-                        angle_target_and_velocity,
-                        distance_to_target
-                    ]).astype(np.float32)
+                    obs_array = np.array(
+                        [
+                            angle_to_up,
+                            velocity,
+                            angle_velocity,
+                            distance_to_target,
+                            angle_to_target,
+                            angle_target_and_velocity,
+                            distance_to_target,
+                        ],
+                        dtype=np.float32,
+                    )
 
-                    # Passiamo l'array corretto alla funzione act
+                    # rumore sensori
+                    obs_array = add_sensor_noise(obs_array)
+
                     thruster_left, thruster_right = player.act(obs_array)
-                    
+
                 elif player.name == "PPO":
-                    # Recuperiamo le coordinate del target corrente
                     xt = targets[player.target_counter][0]
                     yt = targets[player.target_counter][1]
-                    
-                    # Calcoli fisici per l'osservazione (copiati da env_A2C.py)
+
                     angle_to_up = player.angle / 180 * pi
                     velocity = sqrt(player.x_speed**2 + player.y_speed**2)
                     angle_velocity = player.angular_speed
-                    
-                    dist_val = sqrt((xt - player.x_position) ** 2 + (yt - player.y_position) ** 2)
+                    dist_val = sqrt(
+                        (xt - player.x_position) ** 2 + (yt - player.y_position) ** 2
+                    )
                     distance_to_target = dist_val / 500
-                    
-                    angle_to_target = np.arctan2(yt - player.y_position, xt - player.x_position)
-                    
+                    angle_to_target = np.arctan2(
+                        yt - player.y_position, xt - player.x_position
+                    )
                     angle_target_and_velocity = np.arctan2(
                         yt - player.y_position, xt - player.x_position
                     ) - np.arctan2(player.y_speed, player.x_speed)
 
-                    obs_array = np.array([
-                        angle_to_up,
-                        velocity,
-                        angle_velocity,
-                        distance_to_target,
-                        angle_to_target,
-                        angle_target_and_velocity,
-                        distance_to_target
-                    ]).astype(np.float32)
+                    obs_array = np.array(
+                        [
+                            angle_to_up,
+                            velocity,
+                            angle_velocity,
+                            distance_to_target,
+                            angle_to_target,
+                            angle_target_and_velocity,
+                            distance_to_target,
+                        ],
+                        dtype=np.float32,
+                    )
 
-                    # Passiamo l'array corretto alla funzione act
+                    # rumore sensori (puoi disabilitare se vuoi PPO “pulito”)
+                    # obs_array = add_sensor_noise(obs_array)
+
                     thruster_left, thruster_right = player.act(obs_array)
-                
+
                 elif player.name == "PPO_noisy":
-                    # Recuperiamo le coordinate del target corrente
                     xt = targets[player.target_counter][0]
                     yt = targets[player.target_counter][1]
-                    
-                    # Calcoli fisici per l'osservazione (copiati da env_A2C.py)
+
                     angle_to_up = player.angle / 180 * pi
                     velocity = sqrt(player.x_speed**2 + player.y_speed**2)
                     angle_velocity = player.angular_speed
-                    
-                    dist_val = sqrt((xt - player.x_position) ** 2 + (yt - player.y_position) ** 2)
+                    dist_val = sqrt(
+                        (xt - player.x_position) ** 2 + (yt - player.y_position) ** 2
+                    )
                     distance_to_target = dist_val / 500
-                    
-                    angle_to_target = np.arctan2(yt - player.y_position, xt - player.x_position)
-                    
+                    angle_to_target = np.arctan2(
+                        yt - player.y_position, xt - player.x_position
+                    )
                     angle_target_and_velocity = np.arctan2(
                         yt - player.y_position, xt - player.x_position
                     ) - np.arctan2(player.y_speed, player.x_speed)
 
-                    obs_array = np.array([
-                        angle_to_up,
-                        velocity,
-                        angle_velocity,
-                        distance_to_target,
-                        angle_to_target,
-                        angle_target_and_velocity,
-                        distance_to_target
-                    ]).astype(np.float32)
+                    obs_array = np.array(
+                        [
+                            angle_to_up,
+                            velocity,
+                            angle_velocity,
+                            distance_to_target,
+                            angle_to_target,
+                            angle_target_and_velocity,
+                            distance_to_target,
+                        ],
+                        dtype=np.float32,
+                    )
 
-                    # Passiamo l'array corretto alla funzione act
+                    # PPO_noisy vede osservazioni disturbate, come in training
+                    obs_array = add_sensor_noise(obs_array)
+
                     thruster_left, thruster_right = player.act(obs_array)
-                    
+
                 elif player.name == "SAC":
                     angle_to_up = player.angle / 180 * pi
                     velocity = sqrt(player.x_speed**2 + player.y_speed**2)
@@ -467,7 +492,6 @@ def balloon_noisy():
                         targets[player.target_counter][1] - player.y_position,
                         targets[player.target_counter][0] - player.x_position,
                     )
-                    # Angle between the to_target vector and the velocity vector
                     angle_target_and_velocity = np.arctan2(
                         targets[player.target_counter][1] - player.y_position,
                         targets[player.target_counter][0] - player.x_position,
@@ -480,19 +504,25 @@ def balloon_noisy():
                         )
                         / 500
                     )
-                    thruster_left, thruster_right = player.act(
-                        np.array(
-                            [
-                                angle_to_up,
-                                velocity,
-                                angle_velocity,
-                                distance_to_target,
-                                angle_to_target,
-                                angle_target_and_velocity,
-                                distance_to_target,
-                            ]
-                        ).astype(np.float32)
+
+                    obs_array = np.array(
+                        [
+                            angle_to_up,
+                            velocity,
+                            angle_velocity,
+                            distance_to_target,
+                            angle_to_target,
+                            angle_target_and_velocity,
+                            distance_to_target,
+                        ],
+                        dtype=np.float32,
                     )
+
+                    # se il SAC è stato addestrato con rumore, lo riapplichi qui
+                    # obs_array = add_sensor_noise(obs_array)
+
+                    thruster_left, thruster_right = player.act(obs_array)
+
                 else:
                     # Human player
                     thruster_left, thruster_right = player.act([])
@@ -615,18 +645,18 @@ def balloon_noisy():
             )
 
             # Display player info
-            if player_index == 0:     # Human
+            if player_index == 0:  # Human
                 display_info(20)
-            elif player_index == 1:   # PID
+            elif player_index == 1:  # PID
                 display_info(130)
-            elif player_index == 2:   # SAC
+            elif player_index == 2:  # SAC
                 display_info(240)
-            elif player_index == 3:   # A2C
+            elif player_index == 3:  # A2C
                 display_info(350)
-            elif player_index == 4:   # PPO
+            elif player_index == 4:  # PPO
                 display_info(460)
-            elif player_index == 5:   # PPO_noisy
-                display_info(570)     
+            elif player_index == 5:  # PPO_noisy
+                display_info(570)
 
             time_text = time_font.render(
                 "Time : " + str(int(time_limit - time)), True, (255, 255, 255)

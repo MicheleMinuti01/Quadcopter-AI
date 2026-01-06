@@ -5,8 +5,8 @@ More information at:
 https://github.com/AlexandreSajus/Quadcopter-AI
 
 This is a gym environment based on drone_game (see Human/drone_game.py for details)
-It is to be used with a DQN agent
-The goal is to reach randomly positoned targets
+It is to be used with a DQN/SAC/PPO agent.
+The goal is to reach randomly positoned targets.
 """
 
 import os
@@ -20,9 +20,11 @@ from gym import spaces
 import pygame
 from pygame.locals import *
 
+from quadai.utils.paths import get_assets_dir
+
 
 class droneEnv(gym.Env):
-    def __init__(self, render_every_frame, mouse_target):
+    def __init__(self, render_every_frame: bool, mouse_target: bool):
         super(droneEnv, self).__init__()
 
         self.render_every_frame = render_every_frame
@@ -34,11 +36,18 @@ class droneEnv(gym.Env):
         self.screen = pygame.display.set_mode((800, 800))
         self.FramePerSec = pygame.time.Clock()
 
-        self.player = pygame.image.load(os.path.join("assets/sprites/drone_old.png"))
+        # ---- CARICAMENTO ASSET ROBUSTO ----
+        assets_dir = get_assets_dir()  # src/quadai/assets
+        self.player = pygame.image.load(
+            os.path.join(assets_dir, "sprites", "drone_old.png")
+        )
         self.player.convert()
 
-        self.target = pygame.image.load(os.path.join("assets/sprites/target_old.png"))
+        self.target = pygame.image.load(
+            os.path.join(assets_dir, "sprites", "target_old.png")
+        )
         self.target.convert()
+        # -----------------------------------
 
         pygame.font.init()
         self.myfont = pygame.font.SysFont("Comic Sans MS", 20)
@@ -53,52 +62,54 @@ class droneEnv(gym.Env):
         self.arm = 25
 
         # Initialize variables
-        (self.a, self.ad, self.add) = (0, 0, 0)
-        (self.x, self.xd, self.xdd) = (400, 0, 0)
-        (self.y, self.yd, self.ydd) = (400, 0, 0)
+        (self.a, self.ad, self.add) = (0.0, 0.0, 0.0)
+        (self.x, self.xd, self.xdd) = (400.0, 0.0, 0.0)
+        (self.y, self.yd, self.ydd) = (400.0, 0.0, 0.0)
         self.xt = randrange(200, 600)
         self.yt = randrange(200, 600)
 
         # Initialize game variables
         self.target_counter = 0
-        self.reward = 0
-        self.time = 0
-        self.time_limit = 20
+        self.reward = 0.0
+        self.time = 0.0
+        self.time_limit = 20.0
         if self.mouse_target is True:
-            self.time_limit = 1000
+            self.time_limit = 1000.0
 
-        # 2 action thrust amplitude and thrust difference in float values between -1 and 1
-        self.action_space = spaces.Box(low=-1, high=1, shape=(2,))
-        # 8 observations: angle_to_up, velocity, angle_velocity, distance_to_target, angle_to_target, angle_target_and_velocity, distance_to_target
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(7,))
+        # 2 actions: thrust amplitude and thrust difference in [-1, 1]
+        self.action_space = spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32)
+        # 7 observations
+        self.observation_space = spaces.Box(
+            low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32
+        )
 
     def reset(self):
         # Reset variables
-        (self.a, self.ad, self.add) = (0, 0, 0)
-        (self.x, self.xd, self.xdd) = (400, 0, 0)
-        (self.y, self.yd, self.ydd) = (400, 0, 0)
+        (self.a, self.ad, self.add) = (0.0, 0.0, 0.0)
+        (self.x, self.xd, self.xdd) = (400.0, 0.0, 0.0)
+        (self.y, self.yd, self.ydd) = (400.0, 0.0, 0.0)
         self.xt = randrange(200, 600)
         self.yt = randrange(200, 600)
 
         self.target_counter = 0
-        self.reward = 0
-        self.time = 0
+        self.reward = 0.0
+        self.time = 0.0
 
         return self.get_obs()
 
     def get_obs(self) -> np.ndarray:
         """
-        Calculates the observations
+        Calculates the observations.
 
         Returns:
             np.ndarray: The normalized observations:
             - angle_to_up : angle between the drone and the up vector (to observe gravity)
             - velocity : velocity of the drone
-            - angle_velocity : angle of the velocity vector
-            - distance_to_target : distance to the target
+            - angle_velocity : angular velocity
+            - distance_to_target : distance to the target (normalized)
             - angle_to_target : angle between the drone and the target
-            - angle_target_and_velocity : angle between the to_target vector and the velocity vector
-            - distance_to_target : distance to the target (HERE TWICE BY MISTAKE)
+            - angle_target_and_velocity : angle between to_target and velocity vector
+            - distance_to_target : distance to the target (again, by design/original bug)
         """
         angle_to_up = self.a / 180 * pi
         velocity = sqrt(self.xd**2 + self.yd**2)
@@ -107,7 +118,6 @@ class droneEnv(gym.Env):
             sqrt((self.xt - self.x) ** 2 + (self.yt - self.y) ** 2) / 500
         )
         angle_to_target = np.arctan2(self.yt - self.y, self.xt - self.x)
-        # Angle between the to_target vector and the velocity vector
         angle_target_and_velocity = np.arctan2(
             self.yt - self.y, self.xt - self.x
         ) - np.arctan2(self.yd, self.xd)
@@ -123,13 +133,14 @@ class droneEnv(gym.Env):
                 angle_to_target,
                 angle_target_and_velocity,
                 distance_to_target,
-            ]
-        ).astype(np.float32)
+            ],
+            dtype=np.float32,
+        )
 
     def step(self, action):
         # Game loop
         self.reward = 0.0
-        (action0, action1) = (action[0], action[1])
+        (action0, action1) = (float(action[0]), float(action[1]))
 
         # Act every 5 frames
         for _ in range(5):
@@ -139,9 +150,9 @@ class droneEnv(gym.Env):
                 self.xt, self.yt = pygame.mouse.get_pos()
 
             # Initialize accelerations
-            self.xdd = 0
+            self.xdd = 0.0
             self.ydd = self.gravity
-            self.add = 0
+            self.add = 0.0
             thruster_left = self.thruster_mean
             thruster_right = self.thruster_mean
 
@@ -178,6 +189,7 @@ class droneEnv(gym.Env):
                 self.xt = randrange(200, 600)
                 self.yt = randrange(200, 600)
                 self.reward += 100
+                # NOTA: qui puoi anche fare self.target_counter += 1 se vuoi contare i palloncini
 
             # If out of time
             if self.time > self.time_limit:
