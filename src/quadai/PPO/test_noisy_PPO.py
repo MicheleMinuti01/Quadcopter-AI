@@ -23,7 +23,7 @@ env_name = "env_noisy_PPO"
 def test_stats():
     # --- CONFIGURAZIONE ---
     N_EPISODES = 500  # usa 100 per debug veloce, 500-1000 per numeri “seri”
-    VERSION = "v1"
+    VERSION = "v2_noise"
     TIMESTEPS = 4000000
     FILENAME = f"ppo_model_{VERSION}_{TIMESTEPS}_steps.zip"
 
@@ -121,8 +121,8 @@ def test_stats():
     print("=" * 50)
     print(f"Reward Medio: {mean_reward:.2f}")
     print(f"Reward Std: {std_reward:.2f}")
-    print(f"Palloncini medi/episodio:       {balloons_per_ep.mean():.2f}")
-    print(f"% Crash          {crash_rate:.1f}%")
+    print(f"Palloncini medi/episodio: {balloons_per_ep.mean():.2f}")
+    print(f"% Crash {crash_rate:.1f}%")
     print("=" * 50)
 
     

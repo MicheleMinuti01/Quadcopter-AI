@@ -18,7 +18,7 @@ from math import sin, cos, pi, sqrt
 import numpy as np
 import pygame
 from pygame.locals import *
-from quadai.player import HumanPlayer, PIDPlayer, SACPlayer, A2CPlayer, PPOPlayer, PPO_noisy_Player
+from quadai.player import HumanPlayer, PIDPlayer, SACPlayer, A2CPlayer, PPOPlayer, PPO_noisy_Player, PPO_curriculum_Player
 
 
 def correct_path(current_path):
@@ -34,8 +34,8 @@ def correct_path(current_path):
 WIND_ENABLED = True
 WIND_DIR_MIN_DEG = 0.0
 WIND_DIR_MAX_DEG = 360.0
-WIND_SPEED_MIN = 0.00
-WIND_SPEED_MAX = 0.04
+WIND_SPEED_MIN = 0.01
+WIND_SPEED_MAX = 0.05
 WIND_UPDATE_EVERY = 30
 WIND_DIR_RW_STD_DEG = 2.0
 WIND_SPEED_RW_STD = 0.003
@@ -246,14 +246,25 @@ def balloon_noisy():
     time_limit = 100
     respawn_timer_max = 3
 
+
+
+
+
+
+
     players = [
-        HumanPlayer(),
+        #HumanPlayer(),
         PIDPlayer(),
         SACPlayer(),
-        A2CPlayer(),
+        #A2CPlayer(),
         PPOPlayer(),
-        PPO_noisy_Player(),
+        #PPO_noisy_Player(),
+        PPO_curriculum_Player()
     ]
+
+
+
+
 
     # Generate 100 targets
     targets = []
@@ -368,6 +379,11 @@ def balloon_noisy():
                         ]
                     )
 
+
+
+
+
+
                 elif player.name == "A2C":
                     xt = targets[player.target_counter][0]
                     yt = targets[player.target_counter][1]
@@ -403,6 +419,12 @@ def balloon_noisy():
                     obs_array = add_sensor_noise(obs_array)
 
                     thruster_left, thruster_right = player.act(obs_array)
+
+
+
+
+
+
 
                 elif player.name == "PPO":
                     xt = targets[player.target_counter][0]
@@ -440,6 +462,12 @@ def balloon_noisy():
 
                     thruster_left, thruster_right = player.act(obs_array)
 
+
+
+
+
+
+
                 elif player.name == "PPO_noisy":
                     xt = targets[player.target_counter][0]
                     yt = targets[player.target_counter][1]
@@ -475,6 +503,54 @@ def balloon_noisy():
                     obs_array = add_sensor_noise(obs_array)
 
                     thruster_left, thruster_right = player.act(obs_array)
+
+
+
+
+
+
+                elif player.name == "PPO_curriculum":
+                    xt = targets[player.target_counter][0]
+                    yt = targets[player.target_counter][1]
+
+                    angle_to_up = player.angle / 180 * pi
+                    velocity = sqrt(player.x_speed**2 + player.y_speed**2)
+                    angle_velocity = player.angular_speed
+                    dist_val = sqrt(
+                        (xt - player.x_position) ** 2 + (yt - player.y_position) ** 2
+                    )
+                    distance_to_target = dist_val / 500
+                    angle_to_target = np.arctan2(
+                        yt - player.y_position, xt - player.x_position
+                    )
+                    angle_target_and_velocity = np.arctan2(
+                        yt - player.y_position, xt - player.x_position
+                    ) - np.arctan2(player.y_speed, player.x_speed)
+
+                    obs_array = np.array(
+                        [
+                            angle_to_up,
+                            velocity,
+                            angle_velocity,
+                            distance_to_target,
+                            angle_to_target,
+                            angle_target_and_velocity,
+                            distance_to_target,
+                        ],
+                        dtype=np.float32,
+                    )
+
+                    # PPO_noisy vede osservazioni disturbate, come in training
+                    obs_array = add_sensor_noise(obs_array)
+
+                    thruster_left, thruster_right = player.act(obs_array)
+
+
+
+
+
+
+
 
                 elif player.name == "SAC":
                     angle_to_up = player.angle / 180 * pi
@@ -522,6 +598,11 @@ def balloon_noisy():
                     # obs_array = add_sensor_noise(obs_array)
 
                     thruster_left, thruster_right = player.act(obs_array)
+
+
+
+
+
 
                 else:
                     # Human player
@@ -657,6 +738,8 @@ def balloon_noisy():
                 display_info(460)
             elif player_index == 5:  # PPO_noisy
                 display_info(570)
+            elif player_index == 6:  # PPO_curriculum
+                display_info(680)
 
             time_text = time_font.render(
                 "Time : " + str(int(time_limit - time)), True, (255, 255, 255)

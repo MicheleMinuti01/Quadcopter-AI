@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 from .paths import get_results_dir
 
+
 def find_tb_file(log_dir):
     """Trova ricorsivamente il file events.out."""
     if not os.path.exists(log_dir):
@@ -13,17 +14,18 @@ def find_tb_file(log_dir):
                 return os.path.join(root, file)
     return None
 
+
 def plot_paper_style(log_dir, algo_name):
     """
-    Genera un'immagine con 4 grafici (Reward, Length, Entropy, Value Loss).
+    Genera un'immagine con 4 grafici (Reward, Length, Entropy/Ent Coef, Value/Critic Loss).
     Salva in: results/ALGO_results/NOME_RUN_paper_plots.png
     """
     output_dir = get_results_dir(algo_name)
-    
-    # 1. Ricaviamo il nome della run (es. PPO_NOISY_1)
+
+    # 1. Nome della run (es. PPO_NOISY_1, SAC_CURR_PHASE0, ecc.)
     run_name = os.path.basename(os.path.normpath(log_dir))
-    
-    # 2. Definiamo il nome file univoco
+
+    # 2. Nome file output
     save_path = os.path.join(output_dir, f"{run_name}_paper_plots.png")
 
     # 3. Caricamento dati TensorBoard
@@ -37,50 +39,76 @@ def plot_paper_style(log_dir, algo_name):
     try:
         event_acc = EventAccumulator(tb_file)
         event_acc.Reload()
-        tags = event_acc.Tags()['scalars']
+        tags = event_acc.Tags()["scalars"]
     except Exception as e:
         print(f"[TB] Errore caricamento dati: {e}")
         return
 
-    # Metriche da cercare
-    metrics = {
-        "Mean Reward": "rollout/ep_rew_mean",
-        "Mean Episode Length": "rollout/ep_len_mean",
-        "Entropy Loss": "train/entropy_loss",
-        "Value Loss": "train/value_loss"
+    # Candidati per ogni metrica (ordine = priorità).
+    # Funziona per PPO/A2C e per SAC.
+    candidates = {
+        "Mean Reward": ["rollout/ep_rew_mean"],
+        "Mean Episode Length": ["rollout/ep_len_mean"],
+        # Entropia / coefficiente di entropia
+        # - PPO/A2C: train/entropy_loss (se usata)
+        # - SAC: train/ent_coef o train/ent_coef_loss
+        "Entropy / Ent Coef": [
+            "train/entropy_loss",
+            "train/ent_coef",
+            "train/ent_coef_loss",
+        ],
+        # Value loss:
+        # - PPO/A2C: train/value_loss
+        # - SAC: train/critic_loss
+        "Value / Critic Loss": [
+            "train/value_loss",
+            "train/critic_loss",
+        ],
     }
+
+    # Scelta del tag effettivo per ogni metrica
+    metrics = {}
+    for title, tag_list in candidates.items():
+        chosen = None
+        for t in tag_list:
+            if t in tags:
+                chosen = t
+                break
+        metrics[title] = chosen
 
     # Setup Grafico 2x2
     fig, axes = plt.subplots(2, 2, figsize=(16, 10))
-    fig.suptitle(f"Analisi Performance: {run_name}", fontsize=20, weight='bold')
+    fig.suptitle(f"Analisi Performance: {run_name}", fontsize=20, weight="bold")
     axes_flat = axes.flatten()
 
     found_any = False
     for i, (title, tag) in enumerate(metrics.items()):
         ax = axes_flat[i]
-        
-        if tag in tags:
+
+        if tag is not None:
             found_any = True
             events = event_acc.Scalars(tag)
             steps = [e.step for e in events]
             values = [e.value for e in events]
-            
+
             # Colori diversi per metrica
-            color = 'tab:blue'
-            if "Loss" in title: color = 'tab:red'     # Rosso per le Loss
-            if "Length" in title: color = 'tab:green' # Verde per la durata
-            
+            color = "tab:blue"
+            if "Loss" in title:
+                color = "tab:red"  # Rosso per le Loss
+            if "Length" in title:
+                color = "tab:green"  # Verde per la durata
+
             ax.plot(steps, values, color=color, linewidth=2)
-            ax.set_title(title, fontsize=14, weight='bold')
-            ax.grid(True, linestyle='--', alpha=0.7)
-            
+            ax.set_title(title, fontsize=14, weight="bold")
+            ax.grid(True, linestyle="--", alpha=0.7)
+
             # Linea dello zero per il reward
             if "Reward" in title:
-                ax.axhline(y=0, color='black', alpha=0.5)
+                ax.axhline(y=0, color="black", alpha=0.5)
         else:
-            # Se manca la metrica (es. Entropy nei DQN)
-            ax.text(0.5, 0.5, "N/A", ha='center', fontsize=12, color='gray')
-            ax.set_title(title, fontsize=14, color='gray')
+            # Metrica non presente nei log (es. entropia nei DQN)
+            ax.text(0.5, 0.5, "N/A", ha="center", fontsize=12, color="gray")
+            ax.set_title(title, fontsize=14, color="gray")
             ax.set_axis_off()
 
     if not found_any:

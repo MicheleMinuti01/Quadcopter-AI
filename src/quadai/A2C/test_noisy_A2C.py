@@ -117,10 +117,10 @@ def test_stats():
     print(f"Modello: {FILENAME}")
     print(f"Environment: {env_name}")
     print("=" * 50)
-    print(f"Reward Medio:                {mean_reward:.2f}")
-    print(f"Reward Std:                  {std_reward:.2f}")
-    print(f"Palloncini medi/episodio:    {balloons_per_ep.mean():.2f}")
-    print(f"% Crash:       {crash_rate:.1f}%")
+    print(f"Reward Medio: {mean_reward:.2f}")
+    print(f"Reward Std: {std_reward:.2f}")
+    print(f"Palloncini medi/episodio: {balloons_per_ep.mean():.2f}")
+    print(f"% Crash: {crash_rate:.1f}%")
     print("=" * 50)
 
 
