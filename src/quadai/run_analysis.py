@@ -14,9 +14,10 @@ def run_all_plots():
 
     # --- CONFIGURAZIONE ---
     run_versions = {
-        "A2C": "3",        # Cerca A2C_3
-        "PPO": "1",        # Cerca PPO_1
-        "PPO_NOISY": "1"   # Cerca PPO_NOISY_1
+        # "A2C": "3",        # Cerca A2C_3
+        # "PPO": "1",        # Cerca PPO_1
+        # "PPO_NOISY": "1",   # Cerca PPO_NOISY_1
+        "SAC_NOISY": "1"   # Cerca SAC_noisy_2
     }
 
     for key, version in run_versions.items():
