@@ -28,7 +28,7 @@ from env_noisy_A2C import droneEnv
 
 
 ALGO = "A2C"
-VERSION = "v1_curriculum"   # etichetta curriculum per A2C
+VERSION = "v2_curriculum"   # etichetta curriculum per A2C
 TOTAL_TIMESTEPS = 4_000_000
 PHASE_TIMESTEPS = TOTAL_TIMESTEPS // 3  # ~1.33M per fase
 
@@ -123,10 +123,16 @@ def train_curriculum():
         env0,
         verbose=1,
         tensorboard_log=log_dir,
-        learning_rate=0.0007,
+        
+        # --- MODIFICHE CHIAVE ---
+        learning_rate=0.0003,      
+        n_steps=5,                 
+        ent_coef=0.005,           
+        max_grad_norm=0.5,         
+        rms_prop_eps=1e-5,         
         gamma=0.99,
-        ent_coef=0.01,
-        n_steps=20,
+        gae_lambda=0.95,
+        vf_coef=0.5
     )
 
     checkpoint_callback0 = CheckpointCallback(
