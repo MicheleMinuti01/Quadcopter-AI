@@ -21,15 +21,19 @@ def run_all_plots():
         # "A2C": "3",
         # "PPO": "1",
         # "PPO_NOISY": "1",
-         "SAC_NOISY": "1",
+        # "SAC_NOISY": "1",
 
-        # Curriculum: cartelle TB si chiamano esattamente PPO_CURR_PHASE0, senza _1
         #"PPO_CURR_PHASE0": "1",
-   
 
-        # puoi aggiungere anche A2C_CURR_PHASE* e SAC_CURR_PHASE* se li alleni
-        # "A2C_CURR_PHASE0": "",
-        # "SAC_CURR_PHASE0": "",
+         "A2C_CURR_PHASE0": "2",
+         "A2C_CURR_PHASE1": "2",
+         "A2C_CURR_PHASE2": "2",
+        # "A2C_CURR_PHASE0": "1",
+        # "A2C_CURR_PHASE1": "1",
+        # "A2C_CURR_PHASE2": "1",
+        # "SAC_CURR_PHASE0": "1",
+        # "SAC_CURR_PHASE1": "1",
+        # "SAC_CURR_PHASE2": "1",
     }
 
     for key, version in run_versions.items():
